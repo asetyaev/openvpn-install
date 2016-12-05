@@ -2,6 +2,9 @@
 #OpenVPN road warrior installer for Entware-NG running on NDMS v.2. Please see http://keenopt.ru and http://forums.zyxmon.org
 #This script will let you setup your own VPN server in a few minutes, even if you haven't used OpenVPN before
 
+vpn_subnet="10.8.0.0"
+router_subnet="192.168.1.0"
+
 if [[ ! -e /dev/net/tun ]]; then
     echo "TUN/TAP is not available"
     exit 1
@@ -173,7 +176,7 @@ cert server.crt
 key server.key
 dh dh.pem
 topology subnet
-server 10.8.0.0 255.255.255.0
+server $vpn_subnet 255.255.255.0
 ifconfig-pool-persist ipp.txt" > /opt/etc/openvpn/openvpn.conf
     echo 'push "redirect-gateway def1 bypass-dhcp"' >> /opt/etc/openvpn/openvpn.conf
     # DNS
@@ -215,17 +218,17 @@ crl-verify /opt/etc/openvpn/easy-rsa/pki/crl.pem" >> /opt/etc/openvpn/openvpn.co
     echo "#!/bin/sh
 
 [ \"\$table\" != "filter" ] && exit 0   # check the table name
-iptables -I INPUT -i tun0 -j ACCEPT
-iptables -I FORWARD -s 10.8.0.0/24 -j ACCEPT
-iptables -I INPUT -p $PROTOCOL --dport $PORT -j ACCEPT
-iptables -A INPUT -i lo -j ACCEPT" >> /opt/etc/ndm/netfilter.d/052-openvpn-filter.sh
+iptables -A INPUT -i tun+ -j ACCEPT
+iptables -A FORWARD -i tun+ -j ACCEPT
+iptables -A FORWARD -s $vpn_subnet/24 -d $router_subnet/24 -j ACCEPT
+iptables -A FORWARD -s $router_subnet/24 -d $vpn_subnet/24 -j ACCEPT" >> /opt/etc/ndm/netfilter.d/052-openvpn-filter.sh
 
 chmod +x /opt/etc/ndm/netfilter.d/052-openvpn-filter.sh
 
 echo "#!/bin/sh
 
 [ \"\$table\" != "nat" ] && exit 0   # check the table name
-iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -j SNAT --to $IP" >> /opt/etc/ndm/netfilter.d/053-openvpn-nat.sh
+iptables -t nat -A POSTROUTING -s $vpn_subnet/24 -j SNAT --to $IP" >> /opt/etc/ndm/netfilter.d/053-openvpn-nat.sh
 
 chmod +x /opt/etc/ndm/netfilter.d/053-openvpn-nat.sh
 
